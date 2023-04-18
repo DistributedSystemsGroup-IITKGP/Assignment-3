@@ -3,7 +3,7 @@ import time
 from functools import partial
 sys.path.append("../")
 import questionary
-from pysyncobj import SyncObj, replicated
+from pysyncobj import SyncObj, replicated_sync
 
 
 class ATM(SyncObj):
@@ -12,19 +12,19 @@ class ATM(SyncObj):
         super(ATM, self).__init__(selfNodeAddr, otherNodeAddrs)
         self.balance = dict()
 
-    @replicated
+    @replicated_sync
     def signin(self, username):
         if username in self.balance:
             return 0
         self.balance[username] = 0
         return 1
 
-    @replicated
+    @replicated_sync
     def deposit(self, username, value):
         self.balance[username] += value
         return self.balance[username]
 
-    @replicated
+    @replicated_sync
     def withdraw(self, username, value):
         if self.balance[username] >= value:
             self.balance[username] -= value
@@ -32,7 +32,7 @@ class ATM(SyncObj):
 
         return -1
 
-    @replicated
+    @replicated_sync
     def transfer(self, from_user, to_user, value):
         if to_user not in self.balance:
             return -1
@@ -74,12 +74,13 @@ class ATM(SyncObj):
             print('Updated balance:',r,'\n')
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print('Usage: %s self_port partner1_port partner2_port ...' % sys.argv[0])
-        sys.exit(-1)
+    # if len(sys.argv) < 3:
+    #     print('Usage: %s self_port partner1_port partner2_port ...' % sys.argv[0])
+    #     sys.exit(-1)
 
     port = int(sys.argv[1])
-    partners = ['localhost:%d' % int(p) for p in sys.argv[2:]]
+    partners = []
+    # partners = ['localhost:%d' % int(p) for p in sys.argv[2:]]
 
     o = ATM('localhost:%d' % port, partners)
 
@@ -90,6 +91,8 @@ if __name__ == '__main__':
 
     while True:
         time.sleep(0.5)
+
+        print(o.getStatus())
 
         if o._getLeader() is None:
             continue

@@ -44,7 +44,9 @@ class Producer(Base):
 class Partition(Base):
 	__tablename__ = "Partition"
 	topic_id = Column(Integer, ForeignKey("Topic.topic_id", ondelete="CASCADE"), nullable=False, primary_key=True)
-	partition_id = Column(Integer, default = 0 ,nullable=False, primary_key=True)
+	partition_id = Column(Integer, nullable=False, primary_key=True)
+	counter_id = Column(Integer, nullable=False, primary_key=True)
+	address = Column(String(255), nullable=False)
 
 	consumerFront = relationship("ConsumerFront")
 

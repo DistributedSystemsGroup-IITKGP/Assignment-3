@@ -79,8 +79,8 @@ class DAL():
 
 		return jsonify({"status": "success", "message": f"Topic '{topic_name}' created successfully"})
 
-	async def add_partition_topic(self, topic_id, partition_id):
-		new_partition = Partition(topic_id = topic_id, partition_id = partition_id)
+	async def add_partition_topic(self, topic_id, partition_id, counter_id, address):
+		new_partition = Partition(topic_id = topic_id, partition_id = partition_id, counter_id = counter_id, address = address)
 		self.db_session.add(new_partition)
 		await self.db_session.flush()
 
@@ -92,8 +92,13 @@ class DAL():
 
 		partitions = await self.db_session.execute(select(Partition).where(Partition.topic_id == topic_id))
 		partitions = partitions.scalars().all()
-		for partition_id in partitions:
-			new_consumer_front = ConsumerFront(consumer_id = new_consumer.consumer_id, partition_id = partition_id.partition_id, topic_id = topic_id)
+
+		actPartitions = set()
+		for partition in partitions:
+			actPartitions.add(partition.partition_id)
+
+		for partition_id in actPartitions:
+			new_consumer_front = ConsumerFront(consumer_id = new_consumer.consumer_id, partition_id = partition_id, topic_id = topic_id)
 			self.db_session.add(new_consumer_front)
 
 		await self.db_session.flush()
@@ -105,7 +110,7 @@ class DAL():
 		partitions_list = []
 		partitions = partitions.scalars().all()
 		for partition in partitions:
-			partitions_list.append(partition.partition_id)
+			partitions_list.append((partition.partition_id, partition.address))
 
 		await self.db_session.flush()
 

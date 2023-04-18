@@ -114,7 +114,8 @@ async def create_topic():
         query = await db_dal.add_log(topic_name, topics[topic_name], None, None, None, None, "Create Topic", 0)
 
     params = {
-        "topic_name" : topic_name
+        "topic_name" : topic_name,
+        "topic_id" : topics[topic_name]
     }
     address = await getServerAddress()
     print(address)
@@ -131,8 +132,9 @@ async def create_topic():
     brokers_list = response["brokers_list"]
     async with async_session() as session, session.begin():
         db_dal = DAL(session)
-        for broker_id in brokers_list:
-            await db_dal.add_partition_topic(topics[topic_name], broker_id)
+        for broker_id in range(len(brokers_list)):
+            for counter_id in range(len(brokers_list[broker_id])):
+                await db_dal.add_partition_topic(topics[topic_name], broker_id, counter_id, brokers_list[broker_id][counter_id])
 
     async with async_session() as session, session.begin():
         db_dal = DAL(session)
@@ -274,17 +276,33 @@ async def enqueue():
         partition_id = topicLastPartitionId[topic_name] + 1
         topicLastPartitionId[topic_name] = partition_id
 
+    print("Got here 1")
+
     async with async_session() as session, session.begin():
         db_dal = DAL(session)
         query = await db_dal.add_log(topic_name, topics[topic_name], producer_id, partition_id, log_message, None, "Produce", 0)
         partitions = await db_dal.get_partitions(topics[topic_name])
         partitions = partitions.json["partitions"]
-    
-    partition_id %= len(partitions)
+
+    print("Got here 2")
+
+    actPart = set()
+    for partition in partitions:
+        actPart.add(partition[0])
+
+    numPartitions = len(actPart)
+    partition_id %= numPartitions
+
+    partition_address = list()
+
+    for partition in partitions:
+        if partition[0]==partition_id:
+            partition_address.append(partition[1])
 
     params = {
         "topic_name" : topic_name,
         "producer_id" : producer_id,
+        "partition_address" : partition_address,
         "partition_id" : partition_id,
         "log_message" : log_message
     }
@@ -292,6 +310,8 @@ async def enqueue():
     r = requests.post(url = address + '/producer/produce', json = params)
     response = r.json()
     
+    print("Got here 3")
+
     if response["status"]!="success":
         topics_lock = True
         return jsonify({"status": "failure", "message": f"Failed to produce message to topic '{topic_name}'"})
@@ -337,8 +357,8 @@ async def dequeue():
     async with async_session() as session, session.begin():
         db_dal = DAL(session)
         for partition_id in partitions:
-            consumerFronts[partition_id] = await db_dal.get_consumer_front(consumer_id, topics[topic_name], partition_id)
-            consumerFronts[partition_id] = consumerFronts[partition_id][0].front
+            consumerFronts[partition_id[0]] = await db_dal.get_consumer_front(consumer_id, topics[topic_name], partition_id[0])
+            consumerFronts[partition_id[0]] = consumerFronts[partition_id[0]][0].front
 
     log_message = None
     params = {
@@ -348,9 +368,14 @@ async def dequeue():
         "consumer_fronts" : consumerFronts
     }
 
+    print("-"*50)
+    print(params)
+    print("-"*50)
+
     address = await getServerAddress()
     r = requests.get(url = address + '/consumer/consume', json = params)
     response = r.json()
+    print(response)
     if response["status"] == "success":
         log_message = response["log_message"]
         partition_updated = response["broker_id"]
@@ -403,8 +428,8 @@ async def size():
     async with async_session() as session, session.begin():
         db_dal = DAL(session)
         for partition_id in partitions:
-            consumerFronts[partition_id] = await db_dal.get_consumer_front(consumer_id, topics[topic_name], partition_id)
-            consumerFronts[partition_id] = consumerFronts[partition_id][0].front
+            consumerFronts[partition_id[0]] = await db_dal.get_consumer_front(consumer_id, topics[topic_name], partition_id[0])
+            consumerFronts[partition_id[0]] = consumerFronts[partition_id[0]][0].front
 
     params = {
         "topic_name" : topic_name,
