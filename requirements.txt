@@ -26,7 +26,7 @@ questionary==1.10.0
 requests==2.31.0
 SQLAlchemy==1.4.46
 tomli==2.0.1
-urllib3==1.26.14
+urllib3==1.26.18
 uvicorn==0.20.0
 wcwidth==0.2.6
 Werkzeug==2.2.3
